@@ -155,7 +155,6 @@ var ENT_TYPES = {
   PLAYER: {
     name: 'PLAYER',
     type: 'player',
-    collision: true,
     pos: pos2d(GAME.VIEW_WIDTH / 2 - 33 / 2, 350),
     size: pos2d(33, 33),
     depth: 1,
@@ -167,6 +166,11 @@ var ENT_TYPES = {
     beamCooldown: 0,
     defaultCooldown: 100,
     beamWidth: 0,
+    onCollision(hitEnt) {
+      if (['enemy'].includes(hitEnt.type)) {
+        this.health -= 5
+      }
+    },
     update() {
       addDebugText('player-health', this.health)
       if (this.health <= 0) { killEnt(this) }
@@ -187,11 +191,9 @@ var ENT_TYPES = {
             if (this.beamWidth === 0 && snapPoint !== 'N') return // skip side beams at first
             const newBeam = createEnt(ENT_TYPES.BEAM, {
               color: '#00ff00cc',
-              // img: 'img/player_beam2.png',
               target: 'enemy',
               dir: 'up',
               depth: 4,
-              // size: pos2d(this.beamWidth, 33)
             })
             snapEnt2Ent(newBeam, 'S', this, snapPoint)
             const offsetFromPlayer = multiplyPos(NSWE[snapPoint], pos2d(this.beamWidth, 0))
@@ -203,11 +205,13 @@ var ENT_TYPES = {
 
       this.beamCooldown = this.beamCooldown > 0 ? this.beamCooldown -= 1 : 0
     },
+    onDestroy() {
+      addExplosion(this)
+    },
   },
   ENEMY: {
     name: 'enemy',
     type: 'enemy',
-    collision: true,
     pos: pos2d(33, 33),
     size: pos2d(33, -33),
     depth: 1,
@@ -218,6 +222,11 @@ var ENT_TYPES = {
     health: 1,
     beamCooldown: 100,
     flightVector: pos2d(0, 0),
+    onCollision(hitEnt) {
+      if (['player'].includes(hitEnt.type)) {
+        this.health -= 5
+      }
+    },
     onDestroy() {
       if (randInt(0, 100) < 33) {
         const powerUpTypes = ['SPEED_UP', 'WIDTH_UP', 'HEALTH_UP']
@@ -258,7 +267,6 @@ var ENT_TYPES = {
     name: 'beam',
     type: 'damager',
     target: 'player',
-    collision: true,
     pos: pos2d(0, 0),
     size: pos2d(3, 33),
     depth: 5,
@@ -266,6 +274,13 @@ var ENT_TYPES = {
     speed: 5,
     color: "rgba(0 0 200 0.3)",
     damage: 1,
+    onCollision(hitEnt) {
+      if (['player', 'enemy'].includes(hitEnt.type) && hitEnt.type === this.target) {
+        hitEnt.health -= this.damage
+        killEnt(this)
+        addExplosion(this)
+      }
+    },
     update() {
       translateEntInDir(this, this.dir, this.speed)
     },
@@ -273,7 +288,6 @@ var ENT_TYPES = {
   SPEED_UP: {
     name: 'speedUp',
     type: 'speedUp',
-    collision: true,
     pos: pos2d(200, 2),
     size: pos2d(24, 24),
     depth: 10,
@@ -281,11 +295,13 @@ var ENT_TYPES = {
     color: 'cyan',
     img: 'img/speed_up.png',
     flightVector: pos2d(0, .33),
-    applyPowerup() {
-      const playerEnt = getEnt('PLAYER')
-      playerEnt.defaultCooldown -= 5
-      if (playerEnt.defaultCooldown < 5) {
-        playerEnt.defaultCooldown = 5
+    onCollision(hitEnt) {
+      if (['player'].includes(hitEnt.type)) {
+        hitEnt.defaultCooldown -= 5
+        if (hitEnt.defaultCooldown < 5) {
+          hitEnt.defaultCooldown = 5
+        }
+        killEnt(this)
       }
     },
     update() {
@@ -296,7 +312,6 @@ var ENT_TYPES = {
   WIDTH_UP: {
     name: 'widthUp',
     type: 'widthUp',
-    collision: true,
     pos: pos2d(200, 2),
     size: pos2d(24, 24),
     depth: 10,
@@ -304,11 +319,13 @@ var ENT_TYPES = {
     color: 'red',
     img: 'img/width_up.png',
     flightVector: pos2d(0, .33),
-    applyPowerup() {
-      const playerEnt = getEnt('PLAYER')
-      playerEnt.beamWidth += 3
-      if (playerEnt.beamWidth > 12) {
-        playerEnt.beamWidth = 12
+    onCollision(hitEnt) {
+      if (['player'].includes(hitEnt.type)) {
+        hitEnt.beamWidth += 3
+        if (hitEnt.beamWidth > 12) {
+          hitEnt.beamWidth = 12
+        }
+        killEnt(this)
       }
     },
     update() {
@@ -319,7 +336,6 @@ var ENT_TYPES = {
   HEALTH_UP: {
     name: 'healthUp',
     type: 'healthUp',
-    collision: true,
     pos: pos2d(200, 2),
     size: pos2d(24, 24),
     depth: 10,
@@ -327,11 +343,13 @@ var ENT_TYPES = {
     color: 'red',
     img: 'img/health_up.png',
     flightVector: pos2d(0, .33),
-    applyPowerup() {
-      const playerEnt = getEnt('PLAYER')
-      playerEnt.health += 1
-      if (playerEnt.health > 10) {
-        playerEnt.health = 10
+    onCollision(hitEnt) {
+      if (['player'].includes(hitEnt.type)) {
+        hitEnt.health += 1
+        if (hitEnt.health > 10) {
+          hitEnt.health = 10
+        }
+        killEnt(this)
       }
     },
     update() {
@@ -448,51 +466,17 @@ function checkCollisions() {
   }
 }
 
-function collisionInvolves(entList, entType1, entType2) {
-  const ent1 = getMatchingObjs(entList, { type: entType1 })
-  const ent2 = getMatchingObjs(entList, { type: entType2 })
-  if (ent1.found && ent2.found) {
-    return { entType1: ent1, entType2: ent2 }
-  }
-
-  return false
-}
-
-// Todo: refactor this so that each ent has a handleCollision() method
 function handleCollisions() {
   checkCollisions()
   EVENTS[EVENT_TYPES.COLLISIONS].forEach((collision) => {
     const entList = collision.entList
     if (!Array.isArray(entList) || entList.length !== 2) return // skip if invalid
     
-    const characterEnts = getMatchingObjs(entList, { type: 'player || enemy' })
-    const damagerEnts = getMatchingObjs(entList, { type: 'damager' })
-
-    if (characterEnts.found && damagerEnts.found) {
-      if (characterEnts.first.type === damagerEnts.first.target) {
-        characterEnts.first.health -= damagerEnts.first.damage
-        killEnt(damagerEnts.first)
-        createEnt(ENT_TYPES.SPRITE, {
-          size: pos2d(15, 15),
-          targetEnt: damagerEnts.first,
-          animationType: 'expand',
-          img: 'img/explosion.png'
-        })
-      }
-    }
+    const entA = entList[0]
+    const entB = entList[1]
     
-    const playerEnt = getMatchingObjs(entList, { type: 'player' })
-    if (characterEnts.all.length === 2 && playerEnt.found) {
-      characterEnts.all.forEach((character) => {
-        character.health -= 5
-      })
-    }
-
-    const powerupEnts = getMatchingObjs(entList, { type: 'speedUp || widthUp' })
-    if (powerupEnts.found && playerEnt.found) {
-      powerupEnts.first.applyPowerup()
-      killEnt(powerupEnts.first)
-    }
+    if ('onCollision' in entA) { entA.onCollision(entB) }
+    if ('onCollision' in entB) { entB.onCollision(entA) }
   })
   EVENTS[EVENT_TYPES.COLLISIONS] = []
 }
@@ -547,6 +531,16 @@ function createEnt(prototype, customProps = {}) {
   updateObjProps(newEnt, customProps, 'overwrite')
   ENTS.push(newEnt)
   return newEnt
+}
+
+function addExplosion(targetEnt = null, pos = pos2d(0, 0)) {
+  createEnt(ENT_TYPES.SPRITE, {
+    pos: pos,
+    size: pos2d(15, 15),
+    targetEnt: targetEnt,
+    animationType: 'expand',
+    img: 'img/explosion.png'
+  })
 }
 
 function drawBackground() {
