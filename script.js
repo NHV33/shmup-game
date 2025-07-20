@@ -13,6 +13,10 @@ function getMatchingObjs(objList, keyValPairs = {}) {
   return results
 }
 
+function deg2rad(degrees) {
+  return degrees * Math.PI / 180
+}
+
 function pos2d(x, y) {
   return { x: x, y: y }
 }
@@ -162,7 +166,7 @@ var ENT_TYPES = {
     color: "rgb(200 0 0)",
     img: 'img/player.png',
     damage: 1,
-    health: 100,
+    health: 10,
     beamCooldown: 0,
     defaultCooldown: 100,
     beamWidth: 0,
@@ -191,7 +195,7 @@ var ENT_TYPES = {
             if (this.beamWidth === 0 && snapPoint !== 'N') return // skip side beams at first
             const newBeam = createEnt(ENT_TYPES.BEAM, {
               color: '#00ff00cc',
-              target: 'enemy',
+              shotBy: this.type,
               dir: 'up',
               depth: 4,
             })
@@ -233,12 +237,7 @@ var ENT_TYPES = {
         const newPowerupEnt = createEnt(ENT_TYPES[randItem(powerUpTypes)], { pos: this.pos })
         snapEnt2Ent(newPowerupEnt, 'center', this, 'center')
       }
-      createEnt(ENT_TYPES.SPRITE, {
-        size: pos2d(15, 15),
-        targetEnt: this,
-        animationType: 'expand',
-        img: 'img/explosion.png'
-      })
+      addExplosion(this)
     },
     update() {
       translateEnt(this, this.flightVector)
@@ -249,7 +248,7 @@ var ENT_TYPES = {
       if (this.beamCooldown <= 0) {
         const newBeam = createEnt(ENT_TYPES.BEAM, {
           color: '#33ccff',
-          target: 'player',
+          shotBy: this.type,
           dir: 'down',
         })
         snapEnt2Ent(newBeam, 'N', this, 'S')
@@ -266,7 +265,7 @@ var ENT_TYPES = {
   BEAM: {
     name: 'beam',
     type: 'damager',
-    target: 'player',
+    shotBy: 'enemy',
     pos: pos2d(0, 0),
     size: pos2d(3, 33),
     depth: 5,
@@ -275,11 +274,14 @@ var ENT_TYPES = {
     color: "rgba(0 0 200 0.3)",
     damage: 1,
     onCollision(hitEnt) {
-      if (['player', 'enemy'].includes(hitEnt.type) && hitEnt.type === this.target) {
+      if (hitEnt.type === this.shotBy) return // prevent friendly fire
+      if (['player', 'enemy', 'asteroid'].includes(hitEnt.type)) {
         hitEnt.health -= this.damage
         killEnt(this)
-        addExplosion(this)
       }
+    },
+    onDestroy() {
+      addExplosion(this)
     },
     update() {
       translateEntInDir(this, this.dir, this.speed)
@@ -348,20 +350,63 @@ var ENT_TYPES = {
     snapPoint: 'center',
     targetEnt: null,
     targetSnapPoint: 'center',
-    animationType: null,
+    animationType: '',
     animationTick: 0,
     animationStop: 20,
+    rotation: 0,
+    degreesPerTick: 1,
+    expansionPerTick: pos2d(1, 1),
     update() {
       if (this.targetEnt) {
         snapEnt2Ent(this, this.snapPoint, this.targetEnt, this.targetSnapPoint)
       }
-      if (this.animationType === 'expand') {
-        this.size = addPos(this.size, pos2d(1, 1))
+      if (this.animationType.includes('expand')) {
+        this.size = addPos(this.size, this.expansionPerTick)
+      }
+      if (this.animationType.includes('rotate')) {
+        this.rotation += this.degreesPerTick
+        this.rotation = this.rotation >= 360 ? this.rotation - 360 : this.rotation
+        this.rotation = this.rotation <= 0 ? 360 - this.rotation : this.rotation
       }
       this.animationTick += 1
       if (this.animationTick > this.animationStop) {
         killEnt(this)
       }
+    },
+  },
+  ASTEROID: {
+    name: 'asteroid',
+    type: 'asteroid',
+    pos: pos2d(0, 0),
+    size: pos2d(33, 33),
+    depth: -5,
+    color: 'red',
+    img: 'img/asteroid.png',
+    rotation: 0,
+    degreesPerTick: 1,
+    health: 10,
+    onCreation() {
+      const size = randInt(33, 70)
+      this.size = pos2d(size, size)
+      this.degreesPerTick = randInt(-3, 3)
+    },
+    onCollision(hitEnt) {
+      if (['player', 'enemy'].includes(hitEnt.type)) {
+        hitEnt.health -= 10
+        killEnt(this)
+      }
+    },
+    onDestroy() {
+      addExplosion(this)
+    },
+    update() {
+      this.rotation += this.degreesPerTick
+      this.rotation = this.rotation >= 360 ? this.rotation - 360 : this.rotation
+      this.rotation = this.rotation <= 0 ? 360 - this.rotation : this.rotation
+
+      translateEntInDir(this, 'down')
+
+      if (this.health <= 0) { killEnt(this) }
     },
   },
   STAR: {
@@ -519,6 +564,7 @@ function createEnt(prototype, customProps = {}) {
   const newEnt = {...prototype}
   applyInheritance(newEnt)
   updateObjProps(newEnt, customProps, 'overwrite')
+  if ('onCreation' in newEnt) { newEnt.onCreation() }
   ENTS.push(newEnt)
   return newEnt
 }
@@ -526,9 +572,12 @@ function createEnt(prototype, customProps = {}) {
 function addExplosion(targetEnt = null, pos = pos2d(0, 0)) {
   createEnt(ENT_TYPES.SPRITE, {
     pos: pos,
-    size: pos2d(15, 15),
+    size: pos2d(3, 3),
     targetEnt: targetEnt,
-    animationType: 'expand',
+    animationStop: 37,
+    expansionPerTick: pos2d(1.33, 1.33),
+    degreesPerTick: randInt(-2, 2),
+    animationType: 'expand & rotate',
     img: 'img/explosion.png'
   })
 }
@@ -555,14 +604,46 @@ function drawImg(ent) {
   ctx.drawImage(image, ent.pos.x, ent.pos.y, ent.size.x, ent.size.y)
 }
 
+function applyRotation(ent) {
+  if (!('rotation' in ent)) return // abort if rotation not needed
+
+  const transform = {
+    angle: deg2rad(ent.rotation),
+    pivot: getRectSnapPoints(ent).center,
+    originalRect: { pos: ent.pos, size: ent.size }
+  }
+  ctx.translate(transform.pivot.x, transform.pivot.y)
+  ctx.rotate(transform.angle)
+  snapEnt2Ent(ent, 'center', rect2d(pos2d(0, 0), pos2d(1, 1)), 'NW')
+
+  return transform
+}
+
+function undoRotation(ent, transform) {
+  if (!transform) return // abort if rotation not needed
+
+  ctx.setTransform(1,0,0,1,0,0) // reset rotation & translation to default
+  // ctx.rotate(transform.angle * -1)
+  // ctx.translate(transform.pivot.x * -1, transform.pivot.y * -1)
+  snapEnt2Ent(ent, 'center', transform.originalRect, 'center')
+}
+
+function drawEnt(ent) {
+  const transform = applyRotation(ent)
+  
+  if('img' in ent) {
+    drawImg(ent)
+  } else if ('color' in ent) {
+    drawRect(ent)
+  }
+
+  undoRotation(ent, transform)
+}
+
 function drawEnts() {
   ENTS.sort((a, b) => a.depth - b.depth)
   ENTS.forEach((ent) => {
-    if('img' in ent) {
-      drawImg(ent)
-    } else if ('color' in ent) {
-      drawRect(ent)
-    }
+    drawEnt(ent)
   })
 }
 
@@ -590,7 +671,8 @@ setInterval(() => {
 
   if (GAME.TICKS % 100 === 0) {
     const randX = randInt(0, GAME.VIEW_WIDTH + 1 - ENT_TYPES.ENEMY.size.x)
-    createEnt(ENT_TYPES.ENEMY, { pos: pos2d(randX, 10) })
+    const entType = randItem(['ENEMY', 'ASTEROID'])
+    createEnt(ENT_TYPES[entType], { pos: pos2d(randX, 0) })
   }
 
   // if (GAME.TICKS % 50 === 0) {
