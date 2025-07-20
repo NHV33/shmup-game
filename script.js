@@ -285,16 +285,23 @@ var ENT_TYPES = {
       translateEntInDir(this, this.dir, this.speed)
     },
   },
-  SPEED_UP: {
-    name: 'speedUp',
-    type: 'speedUp',
-    pos: pos2d(200, 2),
+  COLLECTABLE: {
+    name: 'collectable',
+    type: 'collectable',
+    pos: pos2d(0, 0),
     size: pos2d(24, 24),
     depth: 10,
     speed: .77,
     color: 'cyan',
-    img: 'img/speed_up.png',
     flightVector: pos2d(0, .33),
+    update() {
+      this.flightVector = pos2d(Math.cos(GAME.TICKS / 100), this.speed)
+      translateEnt(this, this.flightVector)
+    },
+  },
+  SPEED_UP: {
+    inheritFrom: ['COLLECTABLE'],
+    img: 'img/speed_up.png',
     onCollision(hitEnt) {
       if (['player'].includes(hitEnt.type)) {
         hitEnt.defaultCooldown -= 5
@@ -304,21 +311,10 @@ var ENT_TYPES = {
         killEnt(this)
       }
     },
-    update() {
-      this.flightVector = pos2d(Math.cos(GAME.TICKS / 100), this.speed)
-      translateEnt(this, this.flightVector)
-    },
   },
   WIDTH_UP: {
-    name: 'widthUp',
-    type: 'widthUp',
-    pos: pos2d(200, 2),
-    size: pos2d(24, 24),
-    depth: 10,
-    speed: .77,
-    color: 'red',
+    inheritFrom: ['COLLECTABLE'],
     img: 'img/width_up.png',
-    flightVector: pos2d(0, .33),
     onCollision(hitEnt) {
       if (['player'].includes(hitEnt.type)) {
         hitEnt.beamWidth += 3
@@ -328,21 +324,10 @@ var ENT_TYPES = {
         killEnt(this)
       }
     },
-    update() {
-      this.flightVector = pos2d(Math.cos(GAME.TICKS / 100), this.speed)
-      translateEnt(this, this.flightVector)
-    },
   },
   HEALTH_UP: {
-    name: 'healthUp',
-    type: 'healthUp',
-    pos: pos2d(200, 2),
-    size: pos2d(24, 24),
-    depth: 10,
-    speed: .77,
-    color: 'red',
+    inheritFrom: ['COLLECTABLE'],
     img: 'img/health_up.png',
-    flightVector: pos2d(0, .33),
     onCollision(hitEnt) {
       if (['player'].includes(hitEnt.type)) {
         hitEnt.health += 1
@@ -351,10 +336,6 @@ var ENT_TYPES = {
         }
         killEnt(this)
       }
-    },
-    update() {
-      this.flightVector = pos2d(Math.cos(GAME.TICKS / 100), this.speed)
-      translateEnt(this, this.flightVector)
     },
   },
   SPRITE: {
@@ -526,8 +507,17 @@ function updateEnts() {
   })
 }
 
+function applyInheritance(ent) {
+  if (!('inheritFrom' in ent)) return
+  ent.inheritFrom.forEach((ancestorName) => {
+    const ancestor = ENT_TYPES[ancestorName]
+    updateObjProps(ent, ancestor, 'overwrite')
+  })
+}
+
 function createEnt(prototype, customProps = {}) {
   const newEnt = {...prototype}
+  applyInheritance(newEnt)
   updateObjProps(newEnt, customProps, 'overwrite')
   ENTS.push(newEnt)
   return newEnt
