@@ -176,9 +176,8 @@ var ENT_TYPES = {
       }
     },
     update() {
-      addDebugText('player-health', this.health)
       if (this.health <= 0) { killEnt(this) }
-      this.color = `hsl(0 ${(10 - this.health) * 5} 50)`
+      // this.color = `hsl(0 ${(10 - this.health) * 5} 50)`
 
       // handle all ArrowKey inputs
       Object.keys(DIRS).forEach((dirName) => {
@@ -427,6 +426,7 @@ var ENTS = []
 
 var COLORS = {
   BG: '#000000',
+  HUD: '#333333',
 }
 
 var DIRS = {
@@ -518,7 +518,7 @@ function getDirVec(dirName, steps = 1) {
 }
 
 function getEnt(entName) {
-  return ENTS.find((ent) => ent.name === entName)
+  return ENTS.find((ent) => ent.name === entName) || {}
 }
 
 function killEnt(ent, options = {}) {
@@ -587,6 +587,17 @@ function drawBackground() {
   ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height)
 }
 
+function drawText(pos, text, font, color) {
+  ctx.font = font
+  ctx.fillStyle = color
+  ctx.fillText(text, pos.x, pos.y)
+}
+
+function drawTextWithShadow(pos, offset, text, font, color, shadowColor) {
+  drawText(addPos(pos, offset), text, font, shadowColor)  
+  drawText(pos, text, font, color)
+}
+
 function drawRect(ent) {
   ctx.fillStyle = ent.color
   ctx.fillRect(ent.pos.x, ent.pos.y, ent.size.x, ent.size.y)
@@ -647,9 +658,21 @@ function drawEnts() {
   })
 }
 
+function drawStats() {
+  ctx.fillStyle = COLORS.HUD
+  ctx.fillRect(0, 0, GAME.VIEW_WIDTH, 33)
+
+  const playerEnt = getEnt('PLAYER')
+  const currentHealth = playerEnt.health && playerEnt.health >= 0 ? playerEnt.health : 0
+  const shieldText = `Shields: ${'|'.repeat(currentHealth)}`
+  const shieldTextColor = currentHealth > 3 ? '#007700' : 'red'
+  drawTextWithShadow(pos2d(5, 20), pos2d(1, 1), shieldText, '15px monospace', shieldTextColor, '#fff')
+}
+
 function drawScene() {
   drawBackground()
   drawEnts()
+  drawStats()
 }
 
 createEnt(ENT_TYPES.PLAYER)
