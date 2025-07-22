@@ -730,21 +730,21 @@ function addDebugText(elementId, textContent) {
   // }
 }
 
-const gameSpeedDebugger = newElement({
-  tag: 'input',
-  type: 'range',
-  value: '1',
-  min: '1',
-  max: '100',
-})
+// const gameSpeedDebugger = newElement({
+//   tag: 'input',
+//   type: 'range',
+//   value: '1',
+//   min: '1',
+//   max: '100',
+// })
 
-gameSpeedDebugger.addEventListener('input', () => {
-  GAME.SLOW_DOWN = gameSpeedDebugger.value
-})
+// gameSpeedDebugger.addEventListener('input', () => {
+//   GAME.SLOW_DOWN = gameSpeedDebugger.value
+// })
 
-const inputDebugger = newElement({
-  tag: 'h1'
-})
+// const inputDebugger = newElement({
+//   tag: 'h1'
+// })
 
 var INPUT = {
   MAP: {
@@ -758,9 +758,9 @@ var INPUT = {
   STATUS: {},
   update(key, isPressed) {
     this.STATUS[key] = isPressed
-    inputDebugger.textContent = Object.keys(this.STATUS).map((key) => {
-      return `\n${key}: ${this.STATUS[key]}`
-    })
+    // inputDebugger.textContent = Object.keys(this.STATUS).map((key) => {
+    //   return `\n${key}: ${this.STATUS[key]}`
+    // })
   },
   get(actionName) {
     const inputName = this.MAP[actionName]
