@@ -245,12 +245,14 @@ var ENT_TYPES = {
       this.color = `hsl(0 ${(10 - this.health) * 5} 50)`
 
       if (this.beamCooldown <= 0) {
-        const newBeam = createEnt(ENT_TYPES.BEAM, {
-          color: '#33ccff',
-          shotBy: this.type,
-          dir: 'down',
-        })
-        snapEnt2Ent(newBeam, 'N', this, 'S')
+        if (this.pos.y > 13) {
+          const newBeam = createEnt(ENT_TYPES.BEAM, {
+            color: '#33ccff',
+            shotBy: this.type,
+            dir: 'down',
+          })
+          snapEnt2Ent(newBeam, 'N', this, 'S')
+        }
         this.beamCooldown = randInt(100, 300)
 
         // const newVectorName = randItem(Object.keys(NSWE))
