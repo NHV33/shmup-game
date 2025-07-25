@@ -496,6 +496,7 @@ function checkCollisions() {
 
 function handleCollisions() {
   checkCollisions()
+  // addDebugText('ENTS', ENTS.map((ent) => { return ent.name }).filter((name) => { return name !== 'star' }))
   EVENTS[EVENT_TYPES.COLLISIONS].forEach((collision) => {
     const entList = collision.entList
     if (!Array.isArray(entList) || entList.length !== 2) return // skip if invalid
@@ -550,7 +551,9 @@ function translateEntInDir(ent, dirName, steps = 1, cancelFunc = null) {
 
 function updateEnts() {
   ENTS.forEach((ent) => {
-    ent.update()
+    if ('update' in ent) {
+      ent.update()
+    }
   })
 }
 
@@ -786,4 +789,41 @@ document.addEventListener('keydown', (event) => {
   }
   if (GAME.PAUSE) return
 
+})
+
+
+const canvasContainer = getElement('canvasContainer')
+canvasContainer.style.position = 'relative'
+const rect = canvasContainer.getBoundingClientRect()
+
+const cursor = newElement({
+  parent: canvasContainer,
+  style: {
+    zIndex: 3,
+    height: '33px',
+    width: '33px',
+    // backgroundColor: 'blue',
+    position: 'absolute',
+  }
+})
+
+const cursorEnt = createEnt({
+  pos: pos2d(0, 0),
+  size: pos2d(3, 3),
+  color: 'aqua',
+  onCollision(hitEnt) {
+    addDebugText('cursor-hit', hitEnt.type)
+    addDebugText('cursor-pos', this.pos)
+  },
+})
+
+document.addEventListener('mousemove', (event) => {
+  // const mousePos = pos2d(event.clientX + rect.left, event.clientY - rect.top)
+  const mousePos = pos2d(event.clientX - rect.left, event.clientY - rect.top)
+  // const mousePos = pos2d(event.clientX, event.clientY)
+  // addDebugText('meh', `${event.clientX - rect.left}, ${event.clientY - rect.top}`)
+  addDebugText('meh', `${mousePos.x}, ${mousePos.y}`)
+  cursor.style.left = `${mousePos.x}px`
+  cursor.style.top = `${mousePos.y}px`
+  cursorEnt.pos = mousePos
 })
