@@ -145,11 +145,11 @@ var GAME = {
   TICKS: 0,
   PAUSE: false,
   PLAYER_SPEED: 1,
-  VIEW_WIDTH: 400,
-  VIEW_HEIGHT: 400,
+  VIEW_WIDTH: mainCanvas.width,
+  VIEW_HEIGHT: mainCanvas.height,
   VIEW_RECT() {
     return rect2d(
-      getDirVec('zero'),
+      pos2d(0, 0),
       pos2d(this.VIEW_WIDTH, this.VIEW_HEIGHT),
     )
   },
