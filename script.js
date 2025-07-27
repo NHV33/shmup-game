@@ -805,7 +805,7 @@ document.addEventListener('keydown', (event) => {
 
 const canvasContainer = getElement('canvasContainer')
 canvasContainer.style.position = 'relative'
-const rect = canvasContainer.getBoundingClientRect()
+const rect = () => { return canvasContainer.getBoundingClientRect() }
 
 const cursor = newElement({
   parent: canvasContainer,
@@ -813,7 +813,6 @@ const cursor = newElement({
     zIndex: 3,
     height: '33px',
     width: '33px',
-    // backgroundColor: 'blue',
     position: 'absolute',
   }
 })
@@ -829,10 +828,7 @@ const cursorEnt = createEnt({
 })
 
 document.addEventListener('mousemove', (event) => {
-  // const mousePos = pos2d(event.clientX + rect.left, event.clientY - rect.top)
-  const mousePos = pos2d(event.clientX - rect.left, event.clientY - rect.top)
-  // const mousePos = pos2d(event.clientX, event.clientY)
-  // addDebugText('meh', `${event.clientX - rect.left}, ${event.clientY - rect.top}`)
+  const mousePos = pos2d(event.clientX - rect().left, event.clientY - rect().top)
   addDebugText('meh', `${mousePos.x}, ${mousePos.y}`)
   cursor.style.left = `${mousePos.x}px`
   cursor.style.top = `${mousePos.y}px`
