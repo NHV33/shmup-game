@@ -233,7 +233,7 @@ var ENT_TYPES = {
     },
     onDestroy() {
       if (randInt(0, 100) < 33) {
-        const powerUpTypes = ['SPEED_UP', 'WIDTH_UP', 'HEALTH_UP']
+        const powerUpTypes = ['SPEED_UP', 'WIDTH_UP', 'MOVEMENT_UP', 'HEALTH_UP']
         const newPowerupEnt = createEnt(ENT_TYPES[randItem(powerUpTypes)], { pos: this.pos })
         snapEnt2Ent(newPowerupEnt, 'center', this, 'center')
       }
@@ -330,6 +330,19 @@ var ENT_TYPES = {
         hitEnt.beamWidth += 3
         if (hitEnt.beamWidth > 12) {
           hitEnt.beamWidth = 12
+        }
+        killEnt(this)
+      }
+    },
+  },
+  MOVEMENT_UP: {
+    inheritFrom: ['COLLECTABLE'],
+    img: 'img/movement_up.png',
+    onCollision(hitEnt) {
+      if (['player'].includes(hitEnt.type)) {
+        hitEnt.speed += 1
+        if (hitEnt.speed > 3) {
+          hitEnt.speed = 3
         }
         killEnt(this)
       }
