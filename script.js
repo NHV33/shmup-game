@@ -144,7 +144,7 @@ var GAME = {
   INTERVAL: 10,
   TICKS: 0,
   PAUSE: false,
-  PLAYER_SPEED: 1,
+  SCORE: 0,
   VIEW_WIDTH: mainCanvas.width,
   VIEW_HEIGHT: mainCanvas.height,
   VIEW_RECT() {
@@ -223,6 +223,7 @@ var ENT_TYPES = {
     img: 'img/enemy.png',
     damage: 1,
     health: 1,
+    score: 100,
     beamCooldown: 100,
     flightVector: pos2d(0, 0),
     onCollision(hitEnt) {
@@ -277,7 +278,13 @@ var ENT_TYPES = {
     onCollision(hitEnt) {
       if (hitEnt.type === this.shotBy) return // prevent friendly fire
       if (['player', 'enemy', 'asteroid'].includes(hitEnt.type)) {
-        hitEnt.health -= this.damage
+        const newHealthValue = hitEnt.health - this.damage
+
+        if (newHealthValue <= 0) {
+          GAME.SCORE += hitEnt.score ? hitEnt.score : 0
+        }
+
+        hitEnt.health = newHealthValue
         killEnt(this)
       }
     },
@@ -386,6 +393,7 @@ var ENT_TYPES = {
     rotation: 0,
     degreesPerTick: 1,
     health: 10,
+    score: 10,
     onCreation() {
       const size = randInt(33, 70)
       this.size = pos2d(size, size)
@@ -672,6 +680,9 @@ function drawStats() {
   const shieldText = `Shields: ${'|'.repeat(currentHealth)}`
   const shieldTextColor = currentHealth > 3 ? '#007700' : 'red'
   drawTextWithShadow(pos2d(5, 20), pos2d(1, 1), shieldText, '15px monospace', shieldTextColor, '#fff')
+
+  const scoreText = `Score: ${GAME.SCORE}`
+  drawTextWithShadow(pos2d(GAME.VIEW_WIDTH - 200, 20), pos2d(1, 1), scoreText, '15px monospace', '#007700', '#fff')
 }
 
 function drawScene() {
