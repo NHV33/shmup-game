@@ -273,7 +273,7 @@ var ENT_TYPES = {
         this.beamCooldown = randInt(100, 300)
 
         // const newVectorName = randItem(Object.keys(NSWE))
-        const newVectorName = randItem(['S', 'SW', 'SE', 'zero'])
+        const newVectorName = randItem(['S', 'SW', 'SE', 'center'])
         this.flightVector = NSWE[newVectorName]
       }
 
@@ -539,7 +539,7 @@ var NSWE = {
   SW: pos2d(-1, 1),
   NE: pos2d(1, -1),
   SE: pos2d(1, 1),
-  zero: pos2d(0, 0), 
+  center: pos2d(0, 0), 
 }
 
 var EVENT_TYPES = {
@@ -602,13 +602,13 @@ function handleCollisions() {
 }
 
 function getDirVec(dirName, steps = 1) {
-  let vector2d = DIRS.zero
-  const dirVec = DIRS[dirName.toLowerCase()] ?? DIRS.zero
+  let vector2d = pos2d(0, 0)
+  const dirVec = DIRS[dirName.toLowerCase()] ?? pos2d(0, 0)
   for (let i = 0; i < steps; i++) {
     vector2d = addPos(vector2d, dirVec)
   }
 
-  return vector2d ? vector2d : DIRS.zero
+  return vector2d ? vector2d : pos2d(0, 0)
 }
 
 function getEnt(entName) {
@@ -852,12 +852,12 @@ function addDebugText(elementId, textContent) {
 
 var INPUT = {
   MAP: {
-    up: 'ArrowUp',
-    down: 'ArrowDown',
-    left: 'ArrowLeft',
-    right: 'ArrowRight',
-    pause: 'Escape',
-    shoot: ' ',
+    up: ['ArrowUp', 'w'],
+    down: ['ArrowDown', 's'],
+    left: ['ArrowLeft', 'a'],
+    right: ['ArrowRight', 'd'],
+    pause: ['Escape'],
+    shoot: [' '],
   },
   STATUS: {},
   update(key, isPressed) {
@@ -867,8 +867,17 @@ var INPUT = {
     // })
   },
   get(actionName) {
-    const inputName = this.MAP[actionName]
-    return this.STATUS[inputName]
+    const keyNames = this.MAP[actionName]
+    if (!keyNames) return
+
+    for (let i = 0; i < keyNames.length; i++) {
+      const keyName = keyNames[i]
+      if (this.STATUS[keyName]) {
+        // return true if any of the valid keys are pressed
+        return true
+      }
+    }
+    return false
   },
 }
 
