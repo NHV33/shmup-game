@@ -33,6 +33,22 @@ function multiplyPos(pos1, pos2) {
   return pos2d(pos1.x * pos2.x, pos1.y * pos2.y)
 }
 
+function dividePos(pos1, pos2) {
+  return pos2d(pos1.x / pos2.x, pos1.y / pos2.y)
+}
+
+function getDistance(pos1, pos2) {
+  const diff = subtractPos(pos1, pos2)
+  return Math.sqrt(Math.abs(diff.x ** 2) + Math.abs(diff.y ** 2))
+}
+
+function getNormalizedVector(originPos, targetPos, pxPerFrame=1) {
+  const distanceInPx = getDistance(targetPos, originPos)
+  const distPerFrame = pxPerFrame / distanceInPx
+  const vector = subtractPos(targetPos, originPos)
+  return multiplyPos(pos2d(distPerFrame, distPerFrame), vector)
+}
+
 function rect2d(pos, size) {
   return {
     pos: pos,
@@ -264,6 +280,36 @@ var ENT_TYPES = {
       this.beamCooldown = this.beamCooldown > 0 ? this.beamCooldown -= 1 : 0
     },
   },
+  ENEMY_DRONE: {
+    inheritFrom: ['ENEMY'],
+    name: 'enemy_drone',
+    type: 'enemy',
+    img: 'img/enemy_drone.png',
+    update() {
+      translateEnt(this, this.flightVector)
+
+      if (this.health <= 0) { killEnt(this) }
+      // this.color = `hsl(0 ${(10 - this.health) * 5} 50)`
+
+      if (this.beamCooldown <= 0) {
+        if (this.pos.y > 13) {
+          const newBeam = createEnt(ENT_TYPES.BEAM_BALL, {
+            color: '#33ccff',
+            shotBy: this.type,
+            pos: this.pos,
+            // dir: 'down',
+          })
+          snapEnt2Ent(newBeam, 'N', this, 'S')
+        }
+        this.beamCooldown = randInt(100, 300)
+
+        const newVectorName = randItem(Object.keys(NSWE))
+        this.flightVector = NSWE[newVectorName]
+      }
+
+      this.beamCooldown = this.beamCooldown > 0 ? this.beamCooldown -= 1 : 0
+    },
+  },
   BEAM: {
     name: 'beam',
     type: 'damager',
@@ -293,6 +339,30 @@ var ENT_TYPES = {
     },
     update() {
       translateEntInDir(this, this.dir, this.speed)
+    },
+  },
+  BEAM_BALL: {
+    inheritFrom: ['BEAM'],
+    name: 'beam_ball',
+    type: 'beam_ball',
+    shotBy: 'enemy',
+    pos: pos2d(0, 0),
+    size: pos2d(5, 5),
+    color: '#fff',
+    depth: 33,
+    speed: 1.5,
+    targetPos: pos2d(0, 0),
+    flightVector: pos2d(0, 1),
+    onCreation() {
+      const player = getEnt('PLAYER')
+      if (!player) return
+
+      const playerCenter = getRectSnapPoints(player).center
+      const thisCenter = getRectSnapPoints(this).center
+      this.flightVector = getNormalizedVector(thisCenter, playerCenter, this.speed)
+    },
+    update() {
+      translateEnt(this, this.flightVector)
     },
   },
   COLLECTABLE: {
@@ -542,10 +612,13 @@ function getDirVec(dirName, steps = 1) {
 }
 
 function getEnt(entName) {
-  return ENTS.find((ent) => ent.name === entName) || {}
+  return ENTS.find((ent) => ent.name === entName)
 }
 
 function killEnt(ent, options = {}) {
+  if (ent.type === 'beam_ball') {
+    console.log("ball killed")
+  }
   if ('onDestroy' in ent) {
     ent.onDestroy(options)
   }
@@ -587,8 +660,9 @@ function applyInheritance(ent) {
 }
 
 function createEnt(prototype, customProps = {}) {
-  const newEnt = {...prototype}
+  const newEnt = { ...prototype }
   applyInheritance(newEnt)
+  updateObjProps(newEnt, prototype, 'overwrite')
   updateObjProps(newEnt, customProps, 'overwrite')
   if ('onCreation' in newEnt) { newEnt.onCreation() }
   ENTS.push(newEnt)
@@ -630,13 +704,13 @@ function drawRect(ent) {
 }
 
 var IMAGES = Object.keys(ENT_TYPES).reduce((acc, entTypeKeyName, i) => {
-  const entType = ENT_TYPES[entTypeKeyName].type
+  const entType = ENT_TYPES[entTypeKeyName].name
   acc[entType] = new Image()
   return acc
 }, {})
 
 function drawImg(ent) {
-  const image = IMAGES[ent.type]
+  const image = IMAGES[ent.name]
   image.src = ent.img
   ctx.drawImage(image, ent.pos.x, ent.pos.y, ent.size.x, ent.size.y)
 }
@@ -689,6 +763,8 @@ function drawStats() {
   ctx.fillRect(0, 0, GAME.VIEW_WIDTH, 33)
 
   const playerEnt = getEnt('PLAYER')
+  if (!playerEnt) return
+
   const currentHealth = playerEnt.health && playerEnt.health >= 0 ? playerEnt.health : 0
   const shieldText = `Shields: ${'|'.repeat(currentHealth)}`
   const shieldTextColor = currentHealth > 3 ? '#007700' : 'red'
@@ -723,7 +799,7 @@ setInterval(() => {
 
   if (GAME.TICKS % 100 === 0) {
     const randX = randInt(0, GAME.VIEW_WIDTH + 1 - ENT_TYPES.ENEMY.size.x)
-    const entType = randItem(['ENEMY', 'ASTEROID'])
+    const entType = randItem(['ENEMY', 'ENEMY_DRONE', 'ASTEROID'])
     createEnt(ENT_TYPES[entType], { pos: pos2d(randX, 0) })
   }
 
@@ -737,7 +813,6 @@ setInterval(() => {
     const randX = randInt(0, GAME.VIEW_WIDTH + 1 - ENT_TYPES.ENEMY.size.x)
     createEnt(ENT_TYPES.STAR, { pos: pos2d(randX, 0) })
   }
-
 }, GAME.INTERVAL)
 
 function addDebugText(elementId, textContent) {
@@ -815,35 +890,36 @@ document.addEventListener('keydown', (event) => {
 
 })
 
+//** Experimental Canvas Cursor */
+// const canvasContainer = getElement('canvasContainer')
+// canvasContainer.style.position = 'relative'
+// const rect = () => { return canvasContainer.getBoundingClientRect() }
 
-const canvasContainer = getElement('canvasContainer')
-canvasContainer.style.position = 'relative'
-const rect = () => { return canvasContainer.getBoundingClientRect() }
+// const cursor = newElement({
+//   parent: canvasContainer,
+//   style: {
+//     zIndex: 3,
+//     height: '33px',
+//     width: '33px',
+//     position: 'absolute',
+//   }
+// })
 
-const cursor = newElement({
-  parent: canvasContainer,
-  style: {
-    zIndex: 3,
-    height: '33px',
-    width: '33px',
-    position: 'absolute',
-  }
-})
+// const cursorEnt = createEnt({
+//   pos: pos2d(0, 0),
+//   size: pos2d(3, 3),
+//   color: 'aqua',
+//   onCollision(hitEnt) {
+//     addDebugText('cursor-hit', hitEnt.type)
+//     addDebugText('cursor-pos', this.pos)
+//   },
+// })
 
-const cursorEnt = createEnt({
-  pos: pos2d(0, 0),
-  size: pos2d(3, 3),
-  color: 'aqua',
-  onCollision(hitEnt) {
-    addDebugText('cursor-hit', hitEnt.type)
-    addDebugText('cursor-pos', this.pos)
-  },
-})
-
-document.addEventListener('mousemove', (event) => {
-  const mousePos = pos2d(event.clientX - rect().left, event.clientY - rect().top)
-  addDebugText('meh', `${mousePos.x}, ${mousePos.y}`)
-  cursor.style.left = `${mousePos.x}px`
-  cursor.style.top = `${mousePos.y}px`
-  cursorEnt.pos = mousePos
-})
+// document.addEventListener('mousemove', (event) => {
+//   const mousePos = pos2d(event.clientX - rect().left, event.clientY - rect().top)
+//   addDebugText('meh', `${mousePos.x}, ${mousePos.y}`)
+//   // addDebugText('dist', getDistance(getEnt('PLAYER').pos, mousePos))
+//   cursor.style.left = `${mousePos.x}px`
+//   cursor.style.top = `${mousePos.y}px`
+//   cursorEnt.pos = mousePos
+// })
