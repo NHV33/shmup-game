@@ -156,6 +156,7 @@ var GAME = {
   INTERVAL: 10,
   TICKS: 0,
   PAUSE: false,
+  OVER: false,
   SCORE: 0,
   VIEW_WIDTH: mainCanvas.width,
   VIEW_HEIGHT: mainCanvas.height,
@@ -222,6 +223,10 @@ var ENT_TYPES = {
     },
     onDestroy() {
       addExplosion(this)
+      const timeoutId = setTimeout(() => {
+        clearTimeout(timeoutId)
+        GAME.OVER = true
+      }, 1000);
     },
   },
   ENEMY: {
@@ -600,6 +605,7 @@ function circlesColliding(ent1, ent2) {
 }
 
 function entsColliding(ent1, ent2) {
+  // count the ents that have a 'circleCollider' property
   const circleColliders = [ent1, ent2].reduce((acc, curr) => {
     return acc + (curr.circleCollider === true ? 1 : 0)
   }, 0)
@@ -813,10 +819,24 @@ function drawStats() {
   drawTextWithShadow(pos2d(GAME.VIEW_WIDTH - 200, 20), pos2d(1, 1), scoreText, '15px monospace', '#007700', '#fff')
 }
 
+function drawMessageScreen(message) {
+  ctx.fillStyle = '#000000cc'
+  ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height)
+  const fontSize = 33
+  const textY = (GAME.VIEW_HEIGHT / 2) - (fontSize / 2)
+  const textWidth = (fontSize * 0.29) * message.length
+  const textX = (GAME.VIEW_WIDTH / 2) - textWidth
+  drawTextWithShadow(pos2d(textX, textY), pos2d(5, 5), message, `${fontSize}px monospace`, '#fff', '#333')
+}
+
 function drawScene() {
   drawBackground()
   drawEnts()
   drawStats()
+
+  if (GAME.OVER) {
+    drawMessageScreen('Press any key to restart.')
+  }
 }
 
 createEnt(ENT_TYPES.PLAYER)
@@ -865,29 +885,16 @@ function addDebugText(elementId, textContent) {
       })
   }
   debugElement.textContent = `${elementId}: ${textContent}`
-
-  // try {
-  //   debugElement = 
-  //   console.log('found')
-  // } catch (error) {
-  // }
 }
 
-// const gameSpeedDebugger = newElement({
-//   tag: 'input',
-//   type: 'range',
-//   value: '1',
-//   min: '1',
-//   max: '100',
-// })
+function inputIsBlocked() {
+  const isBlocked = GAME.PAUSE || GAME.OVER
+  if (!isBlocked) return false
 
-// gameSpeedDebugger.addEventListener('input', () => {
-//   GAME.SLOW_DOWN = gameSpeedDebugger.value
-// })
+  INPUT.STATUS = {}
+  return true
+}
 
-// const inputDebugger = newElement({
-//   tag: 'h1'
-// })
 
 var INPUT = {
   MAP: {
@@ -900,12 +907,13 @@ var INPUT = {
   },
   STATUS: {},
   update(key, isPressed) {
+    if (inputIsBlocked()) return
+
     this.STATUS[key] = isPressed
-    // inputDebugger.textContent = Object.keys(this.STATUS).map((key) => {
-    //   return `\n${key}: ${this.STATUS[key]}`
-    // })
   },
   get(actionName) {
+    if (inputIsBlocked()) return
+
     const keyNames = this.MAP[actionName]
     if (!keyNames) return
 
@@ -931,18 +939,13 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     GAME.PAUSE = !GAME.PAUSE
     if (GAME.PAUSE) {
-      ctx.fillStyle = '#000000cc'
-      ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height)
-      const message = 'Pause'
-      const fontSize = 33
-      const textY = GAME.VIEW_HEIGHT / 2 - fontSize
-      const textWidth = (fontSize * 0.285) * message.length
-      const textX = GAME.VIEW_WIDTH / 2 - textWidth
-      drawTextWithShadow(pos2d(textX, textY), pos2d(5, 5), message, `${fontSize}px monospace`, '#fff', '#333')
+      drawMessageScreen('Pause')
     }
   }
-  if (GAME.PAUSE) return
 
+  if (!getEnt('PLAYER')) {
+    window.location.reload()
+  }
 })
 
 //** Experimental Canvas Cursor */
