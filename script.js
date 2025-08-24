@@ -151,10 +151,6 @@ function rectsColliding(rect1, rect2) {
   return rectOverlapsRect(rect1, rect2) || rectOverlapsRect(rect2, rect1)
 }
 
-function entsColliding(ent1, ent2) {
-  return rectsColliding(getEntRect(ent1), getEntRect(ent2))
-}
-
 var GAME = {
   SLOW_DOWN: 1, // this value is a denominator (e.g. '10' in 1/10)
   INTERVAL: 10,
@@ -470,6 +466,7 @@ var ENT_TYPES = {
     type: 'asteroid',
     pos: pos2d(0, 0),
     size: pos2d(33, 33),
+    circleCollider: true,
     depth: -5,
     color: 'red',
     img: 'img/asteroid.png',
@@ -571,6 +568,51 @@ function addEvent(eventType, props = {}) {
   EVENTS[eventType].push(props)
 }
 
+function circleAndRectColliding(ent1, ent2) {
+  const circleEnt = [ent1, ent2].find((ent) => ent.circleCollider)
+  const rectEnt = [ent1, ent2].find((ent) => !ent.circleCollider)
+  
+  const radius = circleEnt.size.x / 2
+  
+  /** TODO: try optimizing with gate condition */
+  // const originDist = getDistance(circleEnt.pos, rectEnt.pos)
+  // if (originDist > 100) return
+
+  const circleCenter = getRectSnapPoints(circleEnt).center
+  const rectPoints = getObjValues(getRectSnapPoints(rectEnt))
+  for (let i = 0; i < rectPoints.length; i++) {
+    const point = rectPoints[i]
+    const distance = getDistance(circleCenter, point)
+    if (distance <= radius) {
+      return true
+    }
+  }
+  return false
+}
+
+function circlesColliding(ent1, ent2) {
+  const rad1 = ent1.size.x / 2
+  const rad2 = ent2.size.x / 2
+  ent1Center = getRectSnapPoints(ent1).center
+  ent2Center = getRectSnapPoints(ent2).center
+  const distance = getDistance(ent1Center, ent2Center)
+  return distance <= rad1 + rad2
+}
+
+function entsColliding(ent1, ent2) {
+  const circleColliders = [ent1, ent2].reduce((acc, curr) => {
+    return acc + (curr.circleCollider === true ? 1 : 0)
+  }, 0)
+  // handle collision based on how many circle colliders are involved
+  if (circleColliders === 0) {
+    return rectsColliding(ent1, ent2)
+  } else if (circleColliders === 1) {
+    return circleAndRectColliding(ent1, ent2)
+  } else {
+    return circlesColliding(ent1, ent2)
+  }
+}
+
 function checkCollisions() {
   const entsWithCollision = ENTS.filter((ent) => 'onCollision' in ent || ent.collision)
   for (let i = 0; i < entsWithCollision.length; i++) {
@@ -578,7 +620,7 @@ function checkCollisions() {
     // 'j = i + 1' ensures it's only the bottom left slice of pairings (i.e., all unique)
     for (let j = i + 1; j < entsWithCollision.length; j++) {
       const ent2 = entsWithCollision[j]
-      if (rectsColliding(ent1, ent2)) {
+      if (entsColliding(ent1, ent2)) {
         addEvent(EVENT_TYPES.COLLISIONS, { entList: [ent1, ent2] })
       }
     }
@@ -616,9 +658,6 @@ function getEnt(entName) {
 }
 
 function killEnt(ent, options = {}) {
-  if (ent.type === 'beam_ball') {
-    console.log("ball killed")
-  }
   if ('onDestroy' in ent) {
     ent.onDestroy(options)
   }
