@@ -8,6 +8,12 @@ function isObject(variable) {
   )
 }
 
+function getObjValues(obj) {
+  return Object.keys(obj).map((key) => {
+    return obj[key]
+  })
+}
+
 function styleObjectToString(styles) {
   return Object.entries(styles).reduce((acc, [key, value]) => {
       // Convert camelCase to kebab-case for CSS properties
