@@ -892,7 +892,14 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     GAME.PAUSE = !GAME.PAUSE
     if (GAME.PAUSE) {
-      drawBackground()
+      ctx.fillStyle = '#000000cc'
+      ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height)
+      const message = 'Pause'
+      const fontSize = 33
+      const textY = GAME.VIEW_HEIGHT / 2 - fontSize
+      const textWidth = (fontSize * 0.285) * message.length
+      const textX = GAME.VIEW_WIDTH / 2 - textWidth
+      drawTextWithShadow(pos2d(textX, textY), pos2d(5, 5), message, `${fontSize}px monospace`, '#fff', '#333')
     }
   }
   if (GAME.PAUSE) return
